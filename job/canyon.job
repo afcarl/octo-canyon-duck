@@ -5,30 +5,52 @@ DATA=/home/mortonjt/Documents/glen_canyon_soils/data
 TMP=/home/mortonjt/Documents/glen_canyon_soils/tmp
 RES=/home/mortonjt/Documents/glen_canyon_soils/results
 
+
 for f in glen-canyon-16S glen-canyon-18S; do
+    qiime feature-table filter-samples \
+      --i-table $DATA/$f.qza \
+      --m-sample-metadata-file $DATA/glen-canyon-metadata.tsv \
+      --o-filtered-table $DATA/$f.filtered.qza \
+      --p-where "NOT Site_Name='MokiCamp'"
+
+    qiime feature-table filter-features \
+      --p-min-frequency 100 \
+      --i-table $DATA/$f.filtered.qza \
+      --o-filtered-table $DATA/$f.filtered.qza \
 
     qiime composition add-pseudocount \
-      --i-table $DATA/$f.qza \
+      --i-table $DATA/$f.filtered.qza \
       --p-pseudocount 1 \
       --o-composition-table $DATA/$f.composition.qza \
-    
+
     qiime gneiss proportional-clustering \
-                      --i-table $DATA/$f.composition.qza \
-                      --o-clustering $TMP/$f.proportional_tree.nwk.qza \
+                        --i-table $DATA/$f.composition.qza \
+                        --o-clustering $TMP/$f.proportional_tree.nwk.qza \
                         --verbose
-                             
 
     qiime gneiss ols-regression \
-                      --p-formula "sample_pH + C(site_number) + C(Type) +  C(Site_Name) + Hour" \
-                      --i-table $DATA/$f.composition.qza \
+                        --p-formula "sample_pH + C(Type) +  C(Site_Name) " \
+                        --i-table $DATA/$f.composition.qza \
                         --i-tree $TMP/$f.proportional_tree.nwk.qza \
                         --m-metadata-file $DATA/glen-canyon-metadata.tsv \
                         --o-linear-model $TMP/$f.linear_model.qza \
                         --verbose
-    
+
     qiime gneiss ols-summary \
                         --i-model $TMP/$f.linear_model.qza \
                         --o-visualization $RES/$f.regression_summary.qzv \
-                             
+
+    qiime gneiss ols-regression \
+                        --p-formula "sample_pH + estimated_elevation +  C(Site_Name) " \
+                        --i-table $DATA/$f.composition.qza \
+                        --i-tree $TMP/$f.proportional_tree.nwk.qza \
+                        --m-metadata-file $DATA/glen-canyon-metadata.tsv \
+                        --o-linear-model $TMP/$f.elevation_model.qza \
+                        --verbose
+
+    qiime gneiss ols-summary \
+                        --i-model $TMP/$f.elevation_model.qza \
+                        --o-visualization $RES/$f.elevation_regression_summary.qzv \
+
 
 done
